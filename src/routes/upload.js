@@ -1,14 +1,25 @@
+import axios from 'axios';
 import express from "express";
+import FormData from "form-data";
+import fs from "fs";
 import multer from "multer";
 import path from "path";
+import { fileURLToPath } from "url";
 import Image from "../models/image.js";
 
+import dotenv from "dotenv";
+dotenv.config();
+
 const router = express.Router();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const uploadsDir = path.join(__dirname, "..", "uploads");
 
 //  Correct absolute upload path
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, path.join(process.cwd(), "backend/uploads"));
+    cb(null, uploadsDir);
   },
   filename: (req, file, cb) => {
     cb(null, Date.now() + "-" + file.originalname);
@@ -53,14 +64,29 @@ router.post("/", (req, res, next) => {
 
     const image = new Image({
       filename: req.file.filename,
-      path: `backend/uploads/${req.file.filename}`,
+      path: `uploads/${req.file.filename}`,
     });
 
     await image.save();
 
+    const formData = new FormData();
+    formData.append("image", fs.createReadStream(path.join(uploadsDir, req.file.filename)), {
+      filename: req.file.filename,
+      contentType: req.file.mimetype,
+    });
+
+     const response = await axios.post( `${process.env.MODEL_API_URL}/analyze` , formData, {
+      headers: {
+        ...formData.getHeaders(),
+      },
+    });
+
+    console.log("res from the model =>  ", response?.data)
+
     res.status(201).json({
       message: "Image uploaded & saved in images collection",
       image,
+      predictionResult: response.data,
     });
   } catch (error) {
     console.error(error);
