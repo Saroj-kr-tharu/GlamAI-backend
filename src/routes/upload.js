@@ -1,96 +1,76 @@
-import axios from 'axios';
 import express from "express";
-import FormData from "form-data";
-import fs from "fs";
 import multer from "multer";
-import path from "path";
-import { fileURLToPath } from "url";
-import Image from "../models/image.js";
-
+import cloudinary from "cloudinary";
 import dotenv from "dotenv";
+
+import Image from "../models/image.js";
+import { protect } from "../middleware/auth.js";
+
 dotenv.config();
 
 const router = express.Router();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const uploadsDir = path.join(__dirname, "..", "uploads");
+// Cloudinary config
+cloudinary.v2.config({
+  cloud_name: process.env.CLOUD_NAME,
+  api_key: process.env.CLOUD_API_KEY,
+  api_secret: process.env.CLOUD_API_SECRET,
+});
 
-//  Correct absolute upload path
+// Multer (local temp storage)
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
+  destination(req, file, cb) {
+    cb(null, "backend/uploads");
   },
-  filename: (req, file, cb) => {
+  filename(req, file, cb) {
     cb(null, Date.now() + "-" + file.originalname);
   },
 });
 
-// File filter to only allow JPG and PNG images
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = ['image/jpeg', 'image/png'];
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Invalid file type. Only JPG and PNG images are allowed.'), false);
-  }
-};
+const upload = multer({ storage });
 
-const upload = multer({
-  storage,
-  fileFilter,
-  limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit
-  }
-});
 
-// POST image
-router.post("/", (req, res, next) => {
-  upload.single("image")(req, res, (err) => {
-    if (err) {
-      // Handle multer errors (file type, size, etc.)
-      if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({ message: "File is too large. Maximum size is 10MB." });
-      }
-      return res.status(400).json({ message: err.message || "File upload error" });
-    }
-    next();
-  });
-}, async (req, res) => {
+// ============================
+// UPLOAD IMAGE (LOGIN REQUIRED)
+// ============================
+router.post("/", protect, upload.single("image"), async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ message: "No file uploaded" });
-    }
+    // Upload to cloudinary
+    const result = await cloudinary.v2.uploader.upload(req.file.path, {
+      folder: "uploads",
+    });
 
-    const image = new Image({
+    // Save to MongoDB with USER ID
+    const image = await Image.create({
       filename: req.file.filename,
-      path: `uploads/${req.file.filename}`,
+      path: result.secure_url,
+      user: req.user._id, // IMPORTANT
     });
-
-    await image.save();
-
-    const formData = new FormData();
-    formData.append("image", fs.createReadStream(path.join(uploadsDir, req.file.filename)), {
-      filename: req.file.filename,
-      contentType: req.file.mimetype,
-    });
-
-     const response = await axios.post( `${process.env.MODEL_API_URL}/analyze` , formData, {
-      headers: {
-        ...formData.getHeaders(),
-      },
-    });
-
-    console.log("res from the model =>  ", response?.data)
 
     res.status(201).json({
-      message: "Image uploaded & saved in images collection",
+      message: "Uploaded Successfully",
       image,
-      predictionResult: response.data,
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Image upload failed" });
+    res.status(500).json({
+      message: "Upload failed",
+      error: error.message,
+    });
+  }
+});
+
+
+// ============================
+// GET MY UPLOADS
+// ============================
+router.get("/my", protect, async (req, res) => {
+  try {
+    const images = await Image.find({ user: req.user._id });
+
+    res.json(images);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 

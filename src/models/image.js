@@ -5,15 +5,25 @@ const imageSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+
   path: {
     type: String,
     required: true,
   },
+
+  // CONNECT IMAGE TO USER
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
+
   uploadedAt: {
     type: Date,
     default: Date.now,
   },
 });
 
-// 👇 force collection name "images"
-export default mongoose.model("Image", imageSchema, "images");
+const Image = mongoose.model("Image", imageSchema);
+
+export default Image;
