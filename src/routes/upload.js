@@ -30,9 +30,9 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 
-// ============================
+
 // UPLOAD IMAGE (LOGIN REQUIRED)
-// ============================
+
 router.post("/", protect, upload.single("image"), async (req, res) => {
   try {
     // Upload to cloudinary
@@ -44,7 +44,7 @@ router.post("/", protect, upload.single("image"), async (req, res) => {
     const image = await Image.create({
       filename: req.file.filename,
       path: result.secure_url,
-      user: req.user._id, // IMPORTANT
+      user: req.user._id, 
     });
 
     res.status(201).json({
@@ -61,9 +61,9 @@ router.post("/", protect, upload.single("image"), async (req, res) => {
 });
 
 
-// ============================
+
 // GET MY UPLOADS
-// ============================
+
 router.get("/my", protect, async (req, res) => {
   try {
     const images = await Image.find({ user: req.user._id });

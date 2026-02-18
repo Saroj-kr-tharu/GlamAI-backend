@@ -25,7 +25,7 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Mongoose 7+ async middleware (NO next)
+
 userSchema.pre("save", async function () {
   if (!this.isModified("password")) {
     return;

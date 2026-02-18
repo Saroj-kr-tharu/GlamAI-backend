@@ -12,9 +12,9 @@ const generateToken = (id) => {
   });
 };
 
-// =======================
+
 // REGISTER
-// =======================
+
 router.post("/register", async (req, res) => {
   const { username, email, password } = req.body;
 
@@ -48,9 +48,9 @@ router.post("/register", async (req, res) => {
   }
 });
 
-// =======================
+
 // LOGIN
-// =======================
+
 router.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
@@ -78,9 +78,9 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// =======================
+
 // GET CURRENT USER
-// =======================
+
 router.get("/me", protect, async (req, res) => {
   res.status(200).json(req.user);
 });
